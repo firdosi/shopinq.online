@@ -24,9 +24,9 @@
   <div id="result" class="product-list"></div>
 
   <script>
-    // Your Google Sheet published as CSV
-    const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
-    const csvURL = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+    // Use your published sheet's "e" ID from the Publish to web link
+    const pubId = '2PACX-1vS9Yg6etFwOX1L-t2lnOX08ODcj6Z4xnPCCfuqMkZLrtNknP1jNThnvh64s96eTN6hbOq_aP0NBnOSW';
+    const csvURL = `https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`;
     let products = [];
     const input = document.getElementById('searchBox');
     const resultDiv = document.getElementById('result');
