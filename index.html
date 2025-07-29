@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Search Products</title>
   <style>
@@ -21,20 +21,18 @@
   <input type="text" id="searchBox" placeholder="Search by code or name..." disabled />
   <div id="result" class="product-list"></div>
 
-  <!-- Tabletop.js for easy JSON fetch -->
+  <!-- Tabletop.js for JSON fetch from Google Sheets -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
   <script>
-    // 1. Publish your sheet: File > Publish to web
-    // 2. Replace sheet ID below
+    // Make sure your sheet is published to web (File > Publish to web)
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
     let products = [];
-
     const input = document.getElementById('searchBox');
     const resultDiv = document.getElementById('result');
 
-    // Load sheet data with Tabletop.js
+    // Load data
     window.addEventListener('DOMContentLoaded', () => {
-      resultDiv.innerHTML = '<p class="loading">Loading product data...</p>';
+      resultDiv.innerHTML = '<p class="loading">Loading products...</p>';
       Tabletop.init({
         key: sheetId,
         simpleSheet: true,
@@ -49,7 +47,7 @@
       });
     });
 
-    // Render list of products
+    // Render product cards
     function renderProducts(list) {
       if (!list || list.length === 0) {
         resultDiv.innerHTML = '<p class="error">No products available.</p>';
@@ -57,20 +55,20 @@
       }
       resultDiv.innerHTML = list.map(item => `
         <div class="product">
-          <h3>${item.Name || 'Unnamed Product'}</h3>
-          <img src="${item['Image URL']}" alt="${item.Name}" />
-          <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
+          <h3>${item.name || 'Unnamed Product'}</h3>
+          <img src="${item.imageURL || ''}" alt="${item.name}" />
+          <a class="buy-btn" href="${item.aliExpressLink || '#'}" target="_blank">Buy on AliExpress</a>
         </div>
       `).join('');
     }
 
     // Filter by code or name
-    input.addEventListener('input', (e) => {
+    input.addEventListener('input', e => {
       const term = e.target.value.trim().toUpperCase();
       if (!term) return renderProducts(products);
       const filtered = products.filter(item => {
-        const code = (item['Product Code'] || '').toUpperCase();
-        const name = (item.Name || '').toUpperCase();
+        const code = (item.productCode || '').toUpperCase();
+        const name = (item.name || '').toUpperCase();
         return code.includes(term) || name.includes(term);
       });
       if (filtered.length) renderProducts(filtered);
