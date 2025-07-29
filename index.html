@@ -15,34 +15,36 @@
     .loading, .error { font-size: 1.1rem; margin-top: 20px; color: #555; }
     .error { color: #b00; }
   </style>
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
 </head>
 <body>
   <h1>Find Your Product</h1>
   <input type="text" id="searchBox" placeholder="Search by code or name..." disabled />
   <div id="result" class="product-list"></div>
 
-  <!-- Tabletop.js for JSON fetch from Google Sheets -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
   <script>
-    // Make sure your sheet is published to web (File > Publish to web)
+    // Your Google Sheet published as CSV
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
+    const csvURL = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
     let products = [];
     const input = document.getElementById('searchBox');
     const resultDiv = document.getElementById('result');
 
-    // Load data
+    // Load and parse CSV via PapaParse
     window.addEventListener('DOMContentLoaded', () => {
       resultDiv.innerHTML = '<p class="loading">Loading products...</p>';
-      Tabletop.init({
-        key: sheetId,
-        simpleSheet: true,
-        callback: data => {
-          products = data;
+      Papa.parse(csvURL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: results => {
+          products = results.data;
           input.disabled = false;
           renderProducts(products);
         },
         error: err => {
-          resultDiv.innerHTML = `<p class="error">Error loading products: ${err}</p>`;
+          resultDiv.innerHTML = `<p class="error">Error loading products: ${err.message}</p>`;
         }
       });
     });
@@ -55,9 +57,9 @@
       }
       resultDiv.innerHTML = list.map(item => `
         <div class="product">
-          <h3>${item.name || 'Unnamed Product'}</h3>
-          <img src="${item.imageURL || ''}" alt="${item.name}" />
-          <a class="buy-btn" href="${item.aliExpressLink || '#'}" target="_blank">Buy on AliExpress</a>
+          <h3>${item['Name'] || 'Unnamed Product'}</h3>
+          <img src="${item['Image URL']}" alt="${item['Name']}" />
+          <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
         </div>
       `).join('');
     }
@@ -67,8 +69,8 @@
       const term = e.target.value.trim().toUpperCase();
       if (!term) return renderProducts(products);
       const filtered = products.filter(item => {
-        const code = (item.productCode || '').toUpperCase();
-        const name = (item.name || '').toUpperCase();
+        const code = (item['Product Code'] || '').toUpperCase();
+        const name = (item['Name'] || '').toUpperCase();
         return code.includes(term) || name.includes(term);
       });
       if (filtered.length) renderProducts(filtered);
