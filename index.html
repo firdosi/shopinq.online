@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Search Products</title>
   <style>
@@ -21,63 +21,61 @@
   <input type="text" id="searchBox" placeholder="Search by code or name..." disabled />
   <div id="result" class="product-list"></div>
 
+  <!-- Tabletop.js for easy JSON fetch -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
   <script>
+    // 1. Publish your sheet: File > Publish to web
+    // 2. Replace sheet ID below
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
-    const sheetName = 'Sheet1';
     let products = [];
+
     const input = document.getElementById('searchBox');
     const resultDiv = document.getElementById('result');
 
-    // Fetch via Google Visualization API
-    async function loadProducts() {
+    // Load sheet data with Tabletop.js
+    window.addEventListener('DOMContentLoaded', () => {
       resultDiv.innerHTML = '<p class="loading">Loading product data...</p>';
-      try {
-        const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${sheetName}`;
-        const res = await fetch(url);
-        const text = await res.text();
-        const jsonText = text.match(/setResponse\(([^]*?)\);/)[1];
-        const data = JSON.parse(jsonText);
-        const cols = data.table.cols.map(c => c.label);
-        products = data.table.rows.map(r => {
-          const obj = {};
-          r.c.forEach((cell, i) => { obj[cols[i]] = cell ? cell.v : ''; });
-          return obj;
-        });
-        input.disabled = false;
-        renderProducts(products);
-      } catch (err) {
-        resultDiv.innerHTML = `<p class="error">Error loading products: ${err.message}</p>`;
-      }
-    }
+      Tabletop.init({
+        key: sheetId,
+        simpleSheet: true,
+        callback: data => {
+          products = data;
+          input.disabled = false;
+          renderProducts(products);
+        },
+        error: err => {
+          resultDiv.innerHTML = `<p class="error">Error loading products: ${err}</p>`;
+        }
+      });
+    });
 
+    // Render list of products
     function renderProducts(list) {
-      if (!list.length) {
+      if (!list || list.length === 0) {
         resultDiv.innerHTML = '<p class="error">No products available.</p>';
         return;
       }
       resultDiv.innerHTML = list.map(item => `
         <div class="product">
-          <h3>${item['Name'] || 'Unnamed Product'}</h3>
-          <img src="${item['Image URL']}" alt="${item['Name']}" />
+          <h3>${item.Name || 'Unnamed Product'}</h3>
+          <img src="${item['Image URL']}" alt="${item.Name}" />
           <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
         </div>
       `).join('');
     }
 
-    function filterProducts(term) {
-      const keyword = term.trim().toUpperCase();
-      if (!keyword) return renderProducts(products);
+    // Filter by code or name
+    input.addEventListener('input', (e) => {
+      const term = e.target.value.trim().toUpperCase();
+      if (!term) return renderProducts(products);
       const filtered = products.filter(item => {
         const code = (item['Product Code'] || '').toUpperCase();
-        const name = (item['Name'] || '').toUpperCase();
-        return code.includes(keyword) || name.includes(keyword);
+        const name = (item.Name || '').toUpperCase();
+        return code.includes(term) || name.includes(term);
       });
       if (filtered.length) renderProducts(filtered);
-      else resultDiv.innerHTML = `<p class="error">No product found for: <strong>${keyword}</strong></p>`;
-    }
-
-    window.addEventListener('DOMContentLoaded', loadProducts);
-    input.addEventListener('input', e => filterProducts(e.target.value));
+      else resultDiv.innerHTML = `<p class="error">No product found for: <strong>${term}</strong></p>`;
+    });
   </script>
 </body>
 </html>
