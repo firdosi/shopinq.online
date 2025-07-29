@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Search Products</title>
+  <title>Search Products</n  </title>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -79,42 +79,43 @@
   <input type="text" id="searchBox" placeholder="Search product code..." disabled />
   <div id="result" class="product-list"><p class="loading">Loading product data...</p></div>
 
-  <!-- Tabletop.js to load Google Sheet without CORS issues -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
   <script>
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
     let products = [];
     const input = document.getElementById('searchBox');
     const resultDiv = document.getElementById('result');
 
-    // Load sheet on DOM ready
-    window.addEventListener('DOMContentLoaded', () => {
-      Tabletop.init({
-        key: sheetId,
-        simpleSheet: true,
-        callback: data => {
-          products = data;
-          input.disabled = false;
-          resultDiv.innerHTML = ''; // clear loading message
-        },
-        debug: false
-      });
+    async function fetchProducts() {
+      const url = `https://spreadsheets.google.com/feeds/list/${sheetId}/od6/public/values?alt=json`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.feed || !data.feed.entry) throw new Error('No data available');
+      return data.feed.entry.map(entry => ({
+        'Product Code': entry['gsx$productcode'] ? entry['gsx$productcode'].$t : '',
+        'Name': entry['gsx$name'] ? entry['gsx$name'].$t : '',
+        'Image URL': entry['gsx$imageurl'] ? entry['gsx$imageurl'].$t : '',
+        'AliExpress Link': entry['gsx$aliexpresslink'] ? entry['gsx$aliexpresslink'].$t : ''
+      }));
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        products = await fetchProducts();
+        input.disabled = false;
+        resultDiv.innerHTML = '';
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error">Error loading products: ${err.message}</p>`;
+      }
     });
 
     input.addEventListener('input', function(e) {
       const keyword = e.target.value.trim().toUpperCase();
       resultDiv.innerHTML = '';
-
       if (!keyword) return;
-      if (!products.length) {
-        resultDiv.innerHTML = '<p class="loading">Products are still loading, please wait...</p>';
-        return;
-      }
       const matches = products.filter(item => {
         const code = item['Product Code'];
-        return code && code.toString().toUpperCase().includes(keyword);
+        return code && code.toUpperCase().includes(keyword);
       });
-
       if (matches.length) {
         resultDiv.innerHTML = matches.map(m => `
           <div class="product">
