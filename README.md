@@ -1,0 +1,1 @@
+# shopinq.online
