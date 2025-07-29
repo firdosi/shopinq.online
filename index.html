@@ -64,6 +64,10 @@
       display: inline-block;
       margin-top: 10px;
     }
+    .error {
+      color: #b00;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
@@ -95,30 +99,31 @@
     document.getElementById('searchBox').addEventListener('input', async function(e) {
       const keyword = e.target.value.trim().toUpperCase();
       const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = ''; // clear previous
 
-      if (!keyword) {
-        resultDiv.innerHTML = '';
-        return;
-      }
-
+      if (!keyword) return;
       try {
         const products = await fetchProducts();
-        const matches = products.filter(item => item['Product Code'].toUpperCase().includes(keyword));
+        // filter items with a valid Product Code
+        const matches = products.filter(item => {
+          const code = item['Product Code'];
+          return code && String(code).toUpperCase().includes(keyword);
+        });
 
         if (matches.length) {
           resultDiv.innerHTML = matches.map(m => `
             <div class="product">
-              <h3>${m['Name']}</h3>
-              <img src="${m['Image URL']}" alt="${m['Name']}" />
-              <a class="buy-btn" href="${m['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
+              <h3>${m['Name'] || 'Unnamed Product'}</h3>
+              <img src="${m['Image URL'] || ''}" alt="${m['Name']}" />
+              <a class="buy-btn" href="${m['AliExpress Link'] || '#'}" target="_blank">Buy on AliExpress</a>
             </div>
           `).join('');
         } else {
-          resultDiv.innerHTML = `<p>No product found for: <strong>${keyword}</strong></p>`;
+          resultDiv.innerHTML = `<p class="error">No product found for: <strong>${keyword}</strong></p>`;
         }
       } catch (err) {
         console.error('Fetch error:', err);
-        resultDiv.innerHTML = `<p>Error loading products: ${err.message}</p>`;
+        resultDiv.innerHTML = `<p class="error">Error loading products: ${err.message}</p>`;
       }
     });
   </script>
