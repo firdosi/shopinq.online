@@ -23,20 +23,31 @@
   <div id="result" class="product-list"></div>
 
   <script>
-    // Your published sheet ID (publish via File > Publish to web)
+    // Sheet ID from Google Sheets (publish via File > Publish to web)
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
-    const sheetURL = `https://opensheet.elk.sh/${sheetId}/Sheet1`;
     let products = [];
     const input = document.getElementById('searchBox');
     const resultDiv = document.getElementById('result');
 
-    // Fetch all products on load and display
+    // Fetch products using Google Sheets JSON feed
+    async function fetchProducts() {
+      const url = `https://spreadsheets.google.com/feeds/list/${sheetId}/od6/public/values?alt=json`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.feed || !data.feed.entry) throw new Error('No data available');
+      return data.feed.entry.map(entry => ({
+        'Product Code': entry.gsx$productcode?.$t || '',
+        'Name': entry.gsx$name?.$t || '',
+        'Image URL': entry.gsx$imageurl?.$t || '',
+        'AliExpress Link': entry.gsx$aliexpresslink?.$t || ''
+      }));
+    }
+
+    // On load, fetch and show all products
     window.addEventListener('DOMContentLoaded', async () => {
       resultDiv.innerHTML = '<p class="loading">Loading product data...</p>';
       try {
-        const res = await fetch(sheetURL);
-        products = await res.json();
-        if (!Array.isArray(products)) throw new Error('Invalid data');
+        products = await fetchProducts();
         input.disabled = false;
         renderProducts(products);
       } catch (err) {
@@ -44,14 +55,14 @@
       }
     });
 
-    // Render a list of products
+    // Render product cards
     function renderProducts(list) {
       if (list.length) {
         resultDiv.innerHTML = list.map(item => `
           <div class="product">
             <h3>${item['Name'] || 'Unnamed Product'}</h3>
-            <img src="${item['Image URL'] || ''}" alt="${item['Name']}" />
-            <a class="buy-btn" href="${item['AliExpress Link'] || '#'}" target="_blank">Buy on AliExpress</a>
+            <img src="${item['Image URL']}" alt="${item['Name']}" />
+            <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
           </div>
         `).join('');
       } else {
@@ -59,12 +70,12 @@
       }
     }
 
-    // Filter on user input
-    input.addEventListener('input', function() {
-      const keyword = this.value.trim().toUpperCase();
+    // Filter based on input
+    input.addEventListener('input', () => {
+      const keyword = input.value.trim().toUpperCase();
       if (!keyword) return renderProducts(products);
-      const matches = products.filter(item => item['Product Code'] && item['Product Code'].toUpperCase().includes(keyword));
-      if (matches.length) renderProducts(matches);
+      const filtered = products.filter(item => item['Product Code'].toUpperCase().includes(keyword));
+      if (filtered.length) renderProducts(filtered);
       else resultDiv.innerHTML = `<p class="error">No product found for: <strong>${keyword}</strong></p>`;
     });
   </script>
