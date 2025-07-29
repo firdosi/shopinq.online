@@ -72,7 +72,25 @@
   <div id="result" class="product-list"></div>
 
   <script>
-    const sheetURL = 'https://opensheet.elk.sh/1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o/Sheet1';
+    // Google Sheet details
+    const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
+    const sheetName = 'Sheet1'; // replace if your tab name differs
+
+    // Fetch and parse using Google Visualization API to avoid CORS issues
+    async function fetchProducts() {
+      const qurl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?sheet=${sheetName}`;
+      const resp = await fetch(qurl);
+      const text = await resp.text();
+      // extract the JSON from the returned script
+      const jsonText = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1];
+      const data = JSON.parse(jsonText);
+      const cols = data.table.cols.map(c => c.label);
+      return data.table.rows.map(r => {
+        const obj = {};
+        r.c.forEach((cell, i) => obj[cols[i]] = cell ? cell.v : '');
+        return obj;
+      });
+    }
 
     document.getElementById('searchBox').addEventListener('input', async function(e) {
       const keyword = e.target.value.trim().toUpperCase();
@@ -84,24 +102,23 @@
       }
 
       try {
-        const res = await fetch(sheetURL);
-        const data = await res.json();
-        const matches = data.filter(item => item['Product Code'].toUpperCase().includes(keyword));
+        const products = await fetchProducts();
+        const matches = products.filter(item => item['Product Code'].toUpperCase().includes(keyword));
 
-        if (matches.length > 0) {
-          resultDiv.innerHTML = matches.map(match => `
+        if (matches.length) {
+          resultDiv.innerHTML = matches.map(m => `
             <div class="product">
-              <h3>${match['Name']}</h3>
-              <img src="${match['Image URL']}" alt="${match['Name']}" />
-              <a class="buy-btn" href="${match['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
+              <h3>${m['Name']}</h3>
+              <img src="${m['Image URL']}" alt="${m['Name']}" />
+              <a class="buy-btn" href="${m['AliExpress Link']}" target="_blank">Buy on AliExpress</a>
             </div>
           `).join('');
         } else {
           resultDiv.innerHTML = `<p>No product found for: <strong>${keyword}</strong></p>`;
         }
       } catch (err) {
-        console.error('Error:', err);
-        resultDiv.innerHTML = '<p>Failed to fetch products.</p>';
+        console.error('Fetch error:', err);
+        resultDiv.innerHTML = `<p>Error loading products: ${err.message}</p>`;
       }
     });
   </script>
