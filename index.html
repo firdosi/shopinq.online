@@ -32,6 +32,17 @@
     const resultDiv = document.getElementById('result');
     const loadBtn = document.getElementById('loadMore');
 
+    // Utility: shuffle a copy of an array
+    function shuffleArray(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // Load and parse CSV via PapaParse
     window.addEventListener('DOMContentLoaded', () => {
       resultDiv.innerHTML = '<p class="loading">Loading products...</p>';
       Papa.parse(csvURL, {
@@ -39,26 +50,33 @@
         complete: results => {
           products = results.data;
           input.disabled = false;
+          // Show a random sample on initial load
+          const sample = shuffleArray(products).slice(0, pageSize);
           resultDiv.innerHTML = '';
+          sample.forEach(item => renderProduct(item));
         },
         error: err => { resultDiv.innerHTML = `<p class="error">Error loading products: ${err.message}</p>`; }
       });
     });
 
-    function renderPage() {
-      const slice = filtered.slice(currentIndex, currentIndex + pageSize);
-      slice.forEach(item => {
-        const card = document.createElement('div'); card.className='product';
-        card.innerHTML = `<h3>${item['Name']||'Unnamed'}</h3>
-                          <img src="${item['Image URL']}" alt="${item['Name']}" />
-                          <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>`;
-        resultDiv.appendChild(card);
-      });
-      currentIndex += slice.length;
-      if (currentIndex < filtered.length) loadBtn.style.display='block';
-      else loadBtn.style.display='none';
+    // Render a single product card
+    function renderProduct(item) {
+      const card = document.createElement('div'); card.className = 'product';
+      card.innerHTML = `<h3>${item['Name']||'Unnamed'}</h3>
+                        <img src="${item['Image URL']}" alt="${item['Name']}" />
+                        <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>`;
+      resultDiv.appendChild(card);
     }
 
+    // Render next page of filtered results
+    function renderPage() {
+      const slice = filtered.slice(currentIndex, currentIndex + pageSize);
+      slice.forEach(item => renderProduct(item));
+      currentIndex += slice.length;
+      loadBtn.style.display = currentIndex < filtered.length ? 'block' : 'none';
+    }
+
+    // Perform search
     function doSearch() {
       const term = input.value.trim().toUpperCase();
       resultDiv.innerHTML = '';
@@ -73,8 +91,16 @@
     }
 
     input.addEventListener('input', () => {
-      if (!input.value.trim()) { resultDiv.innerHTML=''; loadBtn.style.display='none'; return; }
-      doSearch();
+      const term = input.value.trim();
+      if (!term) {
+        // reset to random sample if input cleared
+        resultDiv.innerHTML = '';
+        const sample = shuffleArray(products).slice(0, pageSize);
+        sample.forEach(item => renderProduct(item));
+        loadBtn.style.display = 'none';
+      } else {
+        doSearch();
+      }
     });
     loadBtn.addEventListener('click', renderPage);
   </script>
