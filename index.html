@@ -68,35 +68,48 @@
       color: #b00;
       margin-top: 20px;
     }
+    .loading {
+      color: #555;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
   <h1>Find Your Product</h1>
-  <input type="text" id="searchBox" placeholder="Search product code..." />
-  <div id="result" class="product-list"></div>
+  <input type="text" id="searchBox" placeholder="Search product code..." disabled />
+  <div id="result" class="product-list"><p class="loading">Loading product data...</p></div>
 
   <!-- Tabletop.js to load Google Sheet without CORS issues -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js"></script>
   <script>
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
     let products = [];
+    const input = document.getElementById('searchBox');
+    const resultDiv = document.getElementById('result');
 
     // Load sheet on DOM ready
     window.addEventListener('DOMContentLoaded', () => {
       Tabletop.init({
         key: sheetId,
         simpleSheet: true,
-        callback: data => products = data,
+        callback: data => {
+          products = data;
+          input.disabled = false;
+          resultDiv.innerHTML = ''; // clear loading message
+        },
         debug: false
       });
     });
 
-    document.getElementById('searchBox').addEventListener('input', function(e) {
+    input.addEventListener('input', function(e) {
       const keyword = e.target.value.trim().toUpperCase();
-      const resultDiv = document.getElementById('result');
       resultDiv.innerHTML = '';
 
       if (!keyword) return;
+      if (!products.length) {
+        resultDiv.innerHTML = '<p class="loading">Products are still loading, please wait...</p>';
+        return;
+      }
       const matches = products.filter(item => {
         const code = item['Product Code'];
         return code && code.toString().toUpperCase().includes(keyword);
