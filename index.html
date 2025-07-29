@@ -19,11 +19,11 @@
 </head>
 <body>
   <h1>Find Your Product</h1>
-  <input type="text" id="searchBox" placeholder="Search product code..." disabled />
+  <input type="text" id="searchBox" placeholder="Search by code or name..." disabled />
   <div id="result" class="product-list"></div>
 
   <script>
-    // Sheet ID from Google Sheets (publish via File > Publish to web)
+    // Sheet ID (publish via File > Publish to web)
     const sheetId = '1BQ6p45t85l9vi05NW_orX38P2f1fkLiEF65qyRLlb_o';
     let products = [];
     const input = document.getElementById('searchBox');
@@ -70,11 +70,15 @@
       }
     }
 
-    // Filter based on input
+    // Filter based on input (by code OR name)
     input.addEventListener('input', () => {
       const keyword = input.value.trim().toUpperCase();
       if (!keyword) return renderProducts(products);
-      const filtered = products.filter(item => item['Product Code'].toUpperCase().includes(keyword));
+      const filtered = products.filter(item => {
+        const code = item['Product Code'].toUpperCase();
+        const name = item['Name'].toUpperCase();
+        return code.includes(keyword) || name.includes(keyword);
+      });
       if (filtered.length) renderProducts(filtered);
       else resultDiv.innerHTML = `<p class="error">No product found for: <strong>${keyword}</strong></p>`;
     });
