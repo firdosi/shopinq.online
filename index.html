@@ -9,100 +9,143 @@
     h1 { font-size: 2.5rem; color: #333; margin-bottom: 20px; }
     #searchBox { padding: 12px 20px; font-size: 18px; border: 2px solid #ccc; border-radius: 10px; width: 90%; max-width: 500px; margin-bottom: 30px; }
     .product-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%; max-width: 1200px; }
-    .product { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex: 1 1 280px; max-width: 280px; text-align: center; }
-    .product img { width: 100%; height: auto; margin-bottom: 15px; border-radius: 8px; }
+    .product { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex: 1 1 280px; max-width: 280px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+    .product img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; margin-bottom: 15px; border-radius: 8px; }
     .buy-btn { background: #ff4747; color: #fff; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin-top: 10px; }
-    .loading, .error { font-size: 1.1rem; margin-top: 20px; color: #555; }
-    .error { color: #b00; }
+    .status-message { font-size: 1.1rem; margin-top: 20px; color: #555; }
+    .status-message.error { color: #d9534f; }
     #loadMore { margin: 20px; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; background: #007bff; color: #fff; cursor: pointer; }
+    #loadMore:disabled { background: #ccc; cursor: not-allowed; }
   </style>
   <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
 </head>
 <body>
   <h1>Find Your Product</h1>
-  <input type="text" id="searchBox" placeholder="Search by code or name..." disabled />
-  <div id="result" class="product-list"></div>
+  <input type="text" id="searchBox" placeholder="Search by code or name..." aria-label="Search by code or name" disabled />
+  <div id="productContainer" class="product-list"></div>
+  <div id="status"></div>
   <button id="loadMore" style="display:none;">Load More</button>
 
   <script>
+    // --- CONFIGURATION & CONSTANTS ---
     const pubId = '2PACX-1vS9Yg6etFwOX1L-t2lnOX08ODcj6Z4xnPCCfuqMkZLrtNknP1jNThnvh64s96eTN6hbOq_aP0NBnOSW';
     const csvURL = `https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`;
-    let products = [], filtered = [], pageSize = 20, currentIndex = 0;
-    const input = document.getElementById('searchBox');
-    const resultDiv = document.getElementById('result');
-    const loadBtn = document.getElementById('loadMore');
+    const CSV_HEADERS = {
+      NAME: 'Name',
+      CODE: 'Product Code',
+      IMAGE_URL: 'Image URL',
+      LINK: 'AliExpress Link'
+    };
+    const PAGE_SIZE = 20;
+    const DEBOUNCE_DELAY = 300; // milliseconds
 
-    // Utility: shuffle a copy of an array
-    function shuffleArray(arr) {
-      const a = arr.slice();
-      for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-      }
-      return a;
-    }
+    // --- STATE ---
+    let allProducts = [];
+    let filteredProducts = [];
+    let currentPageIndex = 0;
 
-    // Load and parse CSV via PapaParse
-    window.addEventListener('DOMContentLoaded', () => {
-      resultDiv.innerHTML = '<p class="loading">Loading products...</p>';
-      Papa.parse(csvURL, {
-        download: true, header: true, skipEmptyLines: true,
-        complete: results => {
-          products = results.data;
-          input.disabled = false;
-          // Show a random sample on initial load
-          const sample = shuffleArray(products).slice(0, pageSize);
-          resultDiv.innerHTML = '';
-          sample.forEach(item => renderProduct(item));
-        },
-        error: err => { resultDiv.innerHTML = `<p class="error">Error loading products: ${err.message}</p>`; }
-      });
+    // --- DOM ELEMENTS ---
+    const searchInput = document.getElementById('searchBox');
+    const productContainer = document.getElementById('productContainer');
+    const statusDiv = document.getElementById('status');
+    const loadMoreBtn = document.getElementById('loadMore');
+
+    // --- UTILITY FUNCTIONS ---
+    const debounce = (func, delay) => {
+      let timeoutId;
+      return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+      };
+    };
+
+    const showStatus = (message, isError = false) => {
+        statusDiv.innerHTML = `<p class="status-message ${isError ? 'error' : ''}">${message}</p>`;
+    };
+    
+    // --- CORE LOGIC ---
+    const renderProducts = (productsToRender) => {
+        const fragment = document.createDocumentFragment();
+        productsToRender.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'product';
+
+            const title = document.createElement('h3');
+            title.textContent = item[CSV_HEADERS.NAME] || 'Unnamed Product';
+
+            const img = document.createElement('img');
+            img.src = item[CSV_HEADERS.IMAGE_URL] || '';
+            img.alt = item[CSV_HEADERS.NAME] || 'Product Image';
+            img.onerror = () => { img.src = 'https://via.placeholder.com/280x280.png?text=Image+Not+Found'; };
+            
+            const link = document.createElement('a');
+            link.className = 'buy-btn';
+            link.href = item[CSV_HEADERS.LINK] || '#';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Buy on AliExpress';
+
+            card.append(title, img, link);
+            fragment.appendChild(card);
+        });
+        productContainer.appendChild(fragment);
+    };
+    
+    const loadMoreProducts = () => {
+        loadMoreBtn.disabled = true;
+        const pageSlice = filteredProducts.slice(currentPageIndex, currentPageIndex + PAGE_SIZE);
+        renderProducts(pageSlice);
+        currentPageIndex += pageSlice.length;
+        loadMoreBtn.style.display = currentPageIndex < filteredProducts.length ? 'block' : 'none';
+        loadMoreBtn.disabled = false;
+    };
+    
+    const performSearch = (term) => {
+        const searchTerm = term.trim().toUpperCase();
+        productContainer.innerHTML = '';
+        statusDiv.innerHTML = '';
+        currentPageIndex = 0;
+        
+        filteredProducts = searchTerm ? allProducts.filter(item => {
+            const code = (item[CSV_HEADERS.CODE] || '').toUpperCase();
+            const name = (item[CSV_HEADERS.NAME] || '').toUpperCase();
+            return code.includes(searchTerm) || name.includes(searchTerm);
+        }) : [...allProducts]; // If no term, show all products
+        
+        if (filteredProducts.length > 0) {
+            loadMoreProducts();
+        } else {
+            showStatus(`No product found for: <strong>${term}</strong>`, true);
+            loadMoreBtn.style.display = 'none';
+        }
+    };
+    
+    const debouncedSearch = debounce(performSearch, DEBOUNCE_DELAY);
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        showStatus('Loading products...');
+        Papa.parse(csvURL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                allProducts = results.data;
+                searchInput.disabled = false;
+                performSearch(''); // Perform initial load of all products
+            },
+            error: (err) => {
+                showStatus(`Error loading products: ${err.message}`, true);
+            }
+        });
     });
 
-    // Render a single product card
-    function renderProduct(item) {
-      const card = document.createElement('div'); card.className = 'product';
-      card.innerHTML = `<h3>${item['Name']||'Unnamed'}</h3>
-                        <img src="${item['Image URL']}" alt="${item['Name']}" />
-                        <a class="buy-btn" href="${item['AliExpress Link']}" target="_blank">Buy on AliExpress</a>`;
-      resultDiv.appendChild(card);
-    }
-
-    // Render next page of filtered results
-    function renderPage() {
-      const slice = filtered.slice(currentIndex, currentIndex + pageSize);
-      slice.forEach(item => renderProduct(item));
-      currentIndex += slice.length;
-      loadBtn.style.display = currentIndex < filtered.length ? 'block' : 'none';
-    }
-
-    // Perform search
-    function doSearch() {
-      const term = input.value.trim().toUpperCase();
-      resultDiv.innerHTML = '';
-      currentIndex = 0;
-      filtered = products.filter(item => {
-        const code = (item['Product Code']||'').toUpperCase();
-        const name = (item['Name']||'').toUpperCase();
-        return code.includes(term) || name.includes(term);
-      });
-      if (filtered.length) renderPage();
-      else resultDiv.innerHTML = `<p class="error">No product found for: <strong>${term}</strong></p>`;
-    }
-
-    input.addEventListener('input', () => {
-      const term = input.value.trim();
-      if (!term) {
-        // reset to random sample if input cleared
-        resultDiv.innerHTML = '';
-        const sample = shuffleArray(products).slice(0, pageSize);
-        sample.forEach(item => renderProduct(item));
-        loadBtn.style.display = 'none';
-      } else {
-        doSearch();
-      }
+    // --- EVENT LISTENERS ---
+    searchInput.addEventListener('input', (e) => {
+        debouncedSearch(e.target.value);
     });
-    loadBtn.addEventListener('click', renderPage);
+    
+    loadMoreBtn.addEventListener('click', loadMoreProducts);
   </script>
 </body>
 </html>
