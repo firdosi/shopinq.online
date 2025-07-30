@@ -68,8 +68,8 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Category Filter Styles */
-        .category-btn.active {
+        /* Suggestion Filter Styles */
+        .suggestion-btn.active {
             background-color: #1e3a8a; /* blue-900 */
             color: white;
             border-color: #1e3a8a;
@@ -90,7 +90,7 @@
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
                     </div>
-                    <input type="text" id="searchBox" class="block w-full pl-12 pr-10 py-3 text-base bg-gray-100 border border-transparent rounded-full placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all" placeholder="Search products..." disabled />
+                    <input type="text" id="searchBox" class="block w-full pl-12 pr-10 py-3 text-base bg-gray-100 border border-transparent rounded-full placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all" placeholder="Search by code or name..." disabled />
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                          <button id="clearSearchBtn" class="hidden text-gray-400 hover:text-gray-600"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
                     </div>
@@ -100,10 +100,10 @@
     </header>
 
     <main class="flex-grow">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Category Filters -->
-            <div id="categoryFilters" class="flex justify-center flex-wrap gap-3 mb-8">
-                <!-- Categories will be injected here -->
+        <div class="px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Suggested Searches -->
+            <div id="suggestionFilters" class="flex justify-center flex-wrap gap-3 mb-8">
+                <!-- Suggested search buttons will be injected here -->
             </div>
 
             <!-- Product Container -->
@@ -133,20 +133,19 @@
         const CSV_HEADERS = { NAME: 'Name', CODE: 'Product Code', IMAGE_URL: 'Image URL', LINK: 'AliExpress Link', CATEGORY: 'Category' };
         const PAGE_SIZE = 20;
         const DEBOUNCE_DELAY = 350;
-        const PREDEFINED_CATEGORIES = ['Home Gadgets', 'Tech', 'Kitchen', 'Accessories', 'Travel'];
+        const SUGGESTION_COUNT = 7;
 
         // --- STATE ---
         let allProducts = [];
         let filteredProducts = [];
         let currentPageIndex = 0;
-        let currentCategory = 'All';
         let isLoading = false;
 
         // --- DOM ELEMENTS ---
         const searchInput = document.getElementById('searchBox');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
         const productContainer = document.getElementById('productContainer');
-        const categoryFiltersContainer = document.getElementById('categoryFilters');
+        const suggestionFiltersContainer = document.getElementById('suggestionFilters');
         const statusDiv = document.getElementById('status');
         const scrollSentinel = document.getElementById('scrollSentinel');
 
@@ -155,6 +154,14 @@
             let timeoutId;
             return (...args) => { clearTimeout(timeoutId); timeoutId = setTimeout(() => func.apply(this, args), delay); };
         };
+
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
 
         const showStatus = (message, isError = false, isLoader = false) => {
             if (isLoader) {
@@ -234,23 +241,15 @@
             showStatus('');
             currentPageIndex = 0;
             
-            let tempProducts = allProducts;
-
-            // Filter by category first
-            if (currentCategory !== 'All') {
-                tempProducts = tempProducts.filter(item => (item[CSV_HEADERS.CATEGORY] || '').trim() === currentCategory);
-            }
-
-            // Then filter by search term
             if (searchTerm) {
-                tempProducts = tempProducts.filter(item => {
+                filteredProducts = allProducts.filter(item => {
                     const code = (item[CSV_HEADERS.CODE] || '').toUpperCase();
                     const name = (item[CSV_HEADERS.NAME] || '').toUpperCase();
                     return code.includes(searchTerm) || name.includes(searchTerm);
                 });
+            } else {
+                filteredProducts = [...allProducts];
             }
-            
-            filteredProducts = tempProducts;
             
             if (filteredProducts.length > 0) {
                 loadMoreProducts();
@@ -261,26 +260,45 @@
 
         const debouncedUpdate = debounce(updateDisplay, DEBOUNCE_DELAY);
 
-        const setupCategories = () => {
-            const dynamicCategories = [...new Set(allProducts.map(p => (p[CSV_HEADERS.CATEGORY] || '').trim()).filter(Boolean))];
-            const categories = ['All', ...PREDEFINED_CATEGORIES, ...dynamicCategories.filter(c => !PREDEFINED_CATEGORIES.includes(c))];
+        const setActiveSuggestionButton = (code) => {
+            document.querySelectorAll('.suggestion-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.code === code);
+            });
+        };
+        
+        const setupSuggestedSearches = () => {
+            suggestionFiltersContainer.innerHTML = ''; // Clear previous buttons
             
-            categoryFiltersContainer.innerHTML = ''; // Clear previous buttons
-            categories.slice(0, 10).forEach(cat => { // Limit to 10 categories to keep it clean
+            // Add "All" button
+            const allBtn = document.createElement('button');
+            allBtn.textContent = 'All Products';
+            allBtn.className = 'suggestion-btn px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 bg-white border border-gray-300 hover:bg-gray-200 hover:border-gray-400 active';
+            allBtn.dataset.code = 'All';
+            allBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                clearSearchBtn.classList.add('hidden');
+                setActiveSuggestionButton('All');
+                updateDisplay();
+            });
+            suggestionFiltersContainer.appendChild(allBtn);
+
+            // Add random product code suggestions
+            const productsWithCodes = allProducts.filter(p => p[CSV_HEADERS.CODE]);
+            const randomSuggestions = shuffleArray([...productsWithCodes]).slice(0, SUGGESTION_COUNT);
+            
+            randomSuggestions.forEach(item => {
+                const code = item[CSV_HEADERS.CODE];
                 const btn = document.createElement('button');
-                btn.textContent = cat;
-                btn.className = 'category-btn px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 bg-white border border-gray-300 hover:bg-gray-200 hover:border-gray-400';
-                if (cat === currentCategory) {
-                    btn.classList.add('active');
-                }
+                btn.textContent = code;
+                btn.dataset.code = code;
+                btn.className = 'suggestion-btn px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 bg-white border border-gray-300 hover:bg-gray-200 hover:border-gray-400';
                 btn.addEventListener('click', () => {
-                    const currentActive = document.querySelector('.category-btn.active');
-                    if(currentActive) currentActive.classList.remove('active');
-                    btn.classList.add('active');
-                    currentCategory = cat;
+                    searchInput.value = code;
+                    clearSearchBtn.classList.remove('hidden');
+                    setActiveSuggestionButton(code);
                     updateDisplay();
                 });
-                categoryFiltersContainer.appendChild(btn);
+                suggestionFiltersContainer.appendChild(btn);
             });
         };
 
@@ -294,7 +312,7 @@
                 complete: (results) => {
                     allProducts = results.data.filter(p => p[CSV_HEADERS.NAME] && p[CSV_HEADERS.IMAGE_URL]);
                     searchInput.disabled = false;
-                    setupCategories();
+                    setupSuggestedSearches();
                     updateDisplay();
                 },
                 error: (err) => {
@@ -305,14 +323,21 @@
 
         // --- EVENT LISTENERS ---
         searchInput.addEventListener('input', (e) => {
+            const value = e.target.value;
             debouncedUpdate();
-            clearSearchBtn.classList.toggle('hidden', !e.target.value);
+            clearSearchBtn.classList.toggle('hidden', !value);
+            if (!value) {
+                setActiveSuggestionButton('All');
+            } else {
+                setActiveSuggestionButton(value.toUpperCase());
+            }
         });
 
         clearSearchBtn.addEventListener('click', () => {
             searchInput.value = '';
             debouncedUpdate();
             clearSearchBtn.classList.add('hidden');
+            setActiveSuggestionButton('All');
             searchInput.focus();
         });
         
