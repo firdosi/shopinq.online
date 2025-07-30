@@ -1,151 +1,332 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Search Products</title>
-  <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
-    h1 { font-size: 2.5rem; color: #333; margin-bottom: 20px; }
-    #searchBox { padding: 12px 20px; font-size: 18px; border: 2px solid #ccc; border-radius: 10px; width: 90%; max-width: 500px; margin-bottom: 30px; }
-    .product-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; width: 100%; max-width: 1200px; }
-    .product { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); flex: 1 1 280px; max-width: 280px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
-    .product img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; margin-bottom: 15px; border-radius: 8px; }
-    .buy-btn { background: #ff4747; color: #fff; padding: 10px 15px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin-top: 10px; }
-    .status-message { font-size: 1.1rem; margin-top: 20px; color: #555; }
-    .status-message.error { color: #d9534f; }
-    #loadMore { margin: 20px; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; background: #007bff; color: #fff; cursor: pointer; }
-    #loadMore:disabled { background: #ccc; cursor: not-allowed; }
-  </style>
-  <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
-</head>
-<body>
-  <h1>Find Your Product</h1>
-  <input type="text" id="searchBox" placeholder="Search by code or name..." aria-label="Search by code or name" disabled />
-  <div id="productContainer" class="product-list"></div>
-  <div id="status"></div>
-  <button id="loadMore" style="display:none;">Load More</button>
-
-  <script>
-    // --- CONFIGURATION & CONSTANTS ---
-    const pubId = '2PACX-1vS9Yg6etFwOX1L-t2lnOX08ODcj6Z4xnPCCfuqMkZLrtNknP1jNThnvh64s96eTN6hbOq_aP0NBnOSW';
-    const csvURL = `https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`;
-    const CSV_HEADERS = {
-      NAME: 'Name',
-      CODE: 'Product Code',
-      IMAGE_URL: 'Image URL',
-      LINK: 'AliExpress Link'
-    };
-    const PAGE_SIZE = 20;
-    const DEBOUNCE_DELAY = 300; // milliseconds
-
-    // --- STATE ---
-    let allProducts = [];
-    let filteredProducts = [];
-    let currentPageIndex = 0;
-
-    // --- DOM ELEMENTS ---
-    const searchInput = document.getElementById('searchBox');
-    const productContainer = document.getElementById('productContainer');
-    const statusDiv = document.getElementById('status');
-    const loadMoreBtn = document.getElementById('loadMore');
-
-    // --- UTILITY FUNCTIONS ---
-    const debounce = (func, delay) => {
-      let timeoutId;
-      return (...args) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(this, args), delay);
-      };
-    };
-
-    const showStatus = (message, isError = false) => {
-        statusDiv.innerHTML = `<p class="status-message ${isError ? 'error' : ''}">${message}</p>`;
-    };
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shopinq.Online - Product Catalog</title>
     
-    // --- CORE LOGIC ---
-    const renderProducts = (productsToRender) => {
-        const fragment = document.createDocumentFragment();
-        productsToRender.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'product';
-
-            const title = document.createElement('h3');
-            title.textContent = item[CSV_HEADERS.NAME] || 'Unnamed Product';
-
-            const img = document.createElement('img');
-            img.src = item[CSV_HEADERS.IMAGE_URL] || '';
-            img.alt = item[CSV_HEADERS.NAME] || 'Product Image';
-            img.onerror = () => { img.src = 'https://via.placeholder.com/280x280.png?text=Image+Not+Found'; };
-            
-            const link = document.createElement('a');
-            link.className = 'buy-btn';
-            link.href = item[CSV_HEADERS.LINK] || '#';
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-            link.textContent = 'Buy on AliExpress';
-
-            card.append(title, img, link);
-            fragment.appendChild(card);
-        });
-        productContainer.appendChild(fragment);
-    };
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    const loadMoreProducts = () => {
-        loadMoreBtn.disabled = true;
-        const pageSlice = filteredProducts.slice(currentPageIndex, currentPageIndex + PAGE_SIZE);
-        renderProducts(pageSlice);
-        currentPageIndex += pageSlice.length;
-        loadMoreBtn.style.display = currentPageIndex < filteredProducts.length ? 'block' : 'none';
-        loadMoreBtn.disabled = false;
-    };
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    const performSearch = (term) => {
-        const searchTerm = term.trim().toUpperCase();
-        productContainer.innerHTML = '';
-        statusDiv.innerHTML = '';
-        currentPageIndex = 0;
-        
-        filteredProducts = searchTerm ? allProducts.filter(item => {
-            const code = (item[CSV_HEADERS.CODE] || '').toUpperCase();
-            const name = (item[CSV_HEADERS.NAME] || '').toUpperCase();
-            return code.includes(searchTerm) || name.includes(searchTerm);
-        }) : [...allProducts]; // If no term, show all products
-        
-        if (filteredProducts.length > 0) {
-            loadMoreProducts();
-        } else {
-            showStatus(`No product found for: <strong>${term}</strong>`, true);
-            loadMoreBtn.style.display = 'none';
+    <!-- PapaParse for CSV Handling -->
+    <script src="https://unpkg.com/papaparse@5.3.1/papaparse.min.js"></script>
+
+    <style>
+        /* Custom Styles & Tailwind Configuration */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Tailwind's gray-50 */
         }
-    };
-    
-    const debouncedSearch = debounce(performSearch, DEBOUNCE_DELAY);
 
-    // --- INITIALIZATION ---
-    document.addEventListener('DOMContentLoaded', () => {
-        showStatus('Loading products...');
-        Papa.parse(csvURL, {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                allProducts = results.data;
-                searchInput.disabled = false;
-                performSearch(''); // Perform initial load of all products
-            },
-            error: (err) => {
-                showStatus(`Error loading products: ${err.message}`, true);
+        /* Masonry Layout using CSS Columns */
+        .masonry-container {
+            column-count: 2;
+            column-gap: 1.5rem; /* gap-6 */
+        }
+        @media (min-width: 640px) { /* sm */
+            .masonry-container {
+                column-count: 3;
             }
-        });
-    });
+        }
+        @media (min-width: 1024px) { /* lg */
+            .masonry-container {
+                column-count: 4;
+            }
+        }
+        @media (min-width: 1280px) { /* xl */
+            .masonry-container {
+                column-count: 5;
+            }
+        }
+        @media (min-width: 1536px) { /* 2xl */
+             .masonry-container {
+                column-count: 6;
+            }
+        }
 
-    // --- EVENT LISTENERS ---
-    searchInput.addEventListener('input', (e) => {
-        debouncedSearch(e.target.value);
-    });
-    
-    loadMoreBtn.addEventListener('click', loadMoreProducts);
-  </script>
+        /* Prevent cards from breaking across columns */
+        .masonry-item {
+            break-inside: avoid;
+            margin-bottom: 1.5rem; /* gap-6 */
+            display: inline-block;
+            width: 100%;
+        }
+
+        /* Simple fade-in animation for product cards */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .product-card-enter {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        /* Custom loader animation */
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #e2e8f0; /* gray-200 */
+            border-bottom-color: #2563eb; /* blue-600 */
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Category Filter Styles */
+        .category-btn.active {
+            background-color: #1e3a8a; /* blue-900 */
+            color: white;
+            border-color: #1e3a8a;
+        }
+    </style>
+</head>
+<body class="text-gray-800 flex flex-col min-h-screen">
+
+    <main class="flex-grow">
+        <div class="px-4 sm:px-6 lg:px-8 py-12">
+            
+            <!-- Header Section -->
+            <header class="text-center mb-8">
+                <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">Shopinq.Online</h1>
+                <p class="mt-3 text-lg text-gray-600 max-w-2xl mx-auto">Discover amazing products, updated daily.</p>
+            </header>
+
+            <!-- Search Bar -->
+            <div class="max-w-2xl mx-auto mb-8 sticky top-4 z-10">
+                 <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
+                    </div>
+                    <input type="text" id="searchBox" class="block w-full pl-12 pr-10 py-3 text-lg bg-white border border-gray-300 rounded-full shadow-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="Search products..." disabled />
+                    <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                         <button id="clearSearchBtn" class="hidden text-gray-400 hover:text-gray-600"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Filters -->
+            <div id="categoryFilters" class="flex justify-center flex-wrap gap-2 mb-12">
+                <!-- Categories will be injected here -->
+            </div>
+
+            <!-- Product Container -->
+            <div id="productContainer" class="masonry-container">
+                <!-- Product cards will be injected here -->
+            </div>
+            
+            <!-- Status Messages & Loader -->
+            <div id="status" class="text-center min-h-[150px] flex items-center justify-center" aria-live="polite"></div>
+            
+            <!-- Sentinel for Infinite Scroll -->
+            <div id="scrollSentinel"></div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white mt-8 border-t border-gray-200">
+        <div class="w-full mx-auto py-6 px-4 sm:px-6 lg:px-8 text-center text-gray-500">
+            <p>&copy; 2024 <a href="http://www.shopinq.online" target="_blank" class="hover:underline">Shopinq.Online</a>. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- CONFIGURATION & CONSTANTS ---
+        const pubId = '2PACX-1vS9Yg6etFwOX1L-t2lnOX08ODcj6Z4xnPCCfuqMkZLrtNknP1jNThnvh64s96eTN6hbOq_aP0NBnOSW';
+        const csvURL = `https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`;
+        const CSV_HEADERS = { NAME: 'Name', CODE: 'Product Code', IMAGE_URL: 'Image URL', LINK: 'AliExpress Link', CATEGORY: 'Category' };
+        const PAGE_SIZE = 20;
+        const DEBOUNCE_DELAY = 350;
+
+        // --- STATE ---
+        let allProducts = [];
+        let filteredProducts = [];
+        let currentPageIndex = 0;
+        let currentCategory = 'All';
+        let isLoading = false;
+
+        // --- DOM ELEMENTS ---
+        const searchInput = document.getElementById('searchBox');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const productContainer = document.getElementById('productContainer');
+        const categoryFiltersContainer = document.getElementById('categoryFilters');
+        const statusDiv = document.getElementById('status');
+        const scrollSentinel = document.getElementById('scrollSentinel');
+
+        // --- UTILITY FUNCTIONS ---
+        const debounce = (func, delay) => {
+            let timeoutId;
+            return (...args) => { clearTimeout(timeoutId); timeoutId = setTimeout(() => func.apply(this, args), delay); };
+        };
+
+        const showStatus = (message, isError = false, isLoader = false) => {
+            if (isLoader) {
+                statusDiv.innerHTML = `<div class="loader"></div>`;
+            } else if (message) {
+                 if (isError) {
+                    statusDiv.innerHTML = `<div class="text-center text-red-600"><svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><p class="mt-4 text-xl font-medium">No Results Found</p><p class="mt-1 text-gray-500">We couldn't find anything for "<strong>${message}</strong>".</p></div>`;
+                }
+            } else {
+                statusDiv.innerHTML = '';
+            }
+        };
+
+        // --- CORE LOGIC ---
+        const renderProducts = (productsToRender) => {
+            const fragment = document.createDocumentFragment();
+            productsToRender.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'masonry-item product-card-enter';
+                
+                const cardContent = document.createElement('div');
+                cardContent.className = 'bg-white rounded-lg shadow-md overflow-hidden transform hover:shadow-xl transition-shadow duration-300 ease-in-out';
+                
+                const img = document.createElement('img');
+                img.src = item[CSV_HEADERS.IMAGE_URL] || '';
+                img.alt = item[CSV_HEADERS.NAME] || 'Product Image';
+                img.className = 'w-full h-auto object-cover';
+                img.onerror = () => { img.src = 'https://placehold.co/400x300/e2e8f0/475569?text=Image+Missing'; };
+
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'p-4';
+
+                const title = document.createElement('h3');
+                title.className = 'text-sm font-semibold text-gray-800';
+                title.textContent = item[CSV_HEADERS.NAME] || 'Unnamed Product';
+                
+                const link = document.createElement('a');
+                link.href = item[CSV_HEADERS.LINK] || '#';
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.className = 'absolute inset-0'; // Makes the whole card clickable
+
+                contentDiv.append(title);
+                cardContent.append(img, contentDiv, link);
+                card.appendChild(cardContent);
+                fragment.appendChild(card);
+            });
+            productContainer.appendChild(fragment);
+        };
+
+        const loadMoreProducts = () => {
+            if (isLoading) return;
+            isLoading = true;
+            showStatus('', false, true);
+
+            setTimeout(() => { // Simulate network latency for a better UX
+                const pageSlice = filteredProducts.slice(currentPageIndex, currentPageIndex + PAGE_SIZE);
+                if(pageSlice.length > 0) {
+                    renderProducts(pageSlice);
+                    currentPageIndex += pageSlice.length;
+                }
+                showStatus('');
+                isLoading = false;
+            }, 500);
+        };
+
+        const updateDisplay = () => {
+            const searchTerm = searchInput.value.trim().toUpperCase();
+            
+            productContainer.innerHTML = '';
+            showStatus('');
+            currentPageIndex = 0;
+            
+            let tempProducts = allProducts;
+
+            // Filter by category first
+            if (currentCategory !== 'All') {
+                tempProducts = tempProducts.filter(item => (item[CSV_HEADERS.CATEGORY] || '').trim() === currentCategory);
+            }
+
+            // Then filter by search term
+            if (searchTerm) {
+                tempProducts = tempProducts.filter(item => {
+                    const code = (item[CSV_HEADERS.CODE] || '').toUpperCase();
+                    const name = (item[CSV_HEADERS.NAME] || '').toUpperCase();
+                    return code.includes(searchTerm) || name.includes(searchTerm);
+                });
+            }
+            
+            filteredProducts = tempProducts;
+            
+            if (filteredProducts.length > 0) {
+                loadMoreProducts();
+            } else {
+                showStatus(searchInput.value.trim(), true);
+            }
+        };
+
+        const debouncedUpdate = debounce(updateDisplay, DEBOUNCE_DELAY);
+
+        const setupCategories = () => {
+            const categories = ['All', ...new Set(allProducts.map(p => (p[CSV_HEADERS.CATEGORY] || '').trim()).filter(Boolean))];
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                btn.textContent = cat;
+                btn.className = 'category-btn px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-200 bg-white border border-gray-300 hover:bg-gray-100';
+                if (cat === 'All') {
+                    btn.classList.add('active');
+                }
+                btn.addEventListener('click', () => {
+                    document.querySelector('.category-btn.active').classList.remove('active');
+                    btn.classList.add('active');
+                    currentCategory = cat;
+                    updateDisplay();
+                });
+                categoryFiltersContainer.appendChild(btn);
+            });
+        };
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            showStatus('', false, true); // Show initial loader
+            Papa.parse(csvURL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    allProducts = results.data.filter(p => p[CSV_HEADERS.NAME] && p[CSV_HEADERS.IMAGE_URL]);
+                    searchInput.disabled = false;
+                    setupCategories();
+                    updateDisplay();
+                },
+                error: (err) => {
+                    showStatus(`Error loading products: ${err.message}`, true);
+                }
+            });
+        });
+
+        // --- EVENT LISTENERS ---
+        searchInput.addEventListener('input', (e) => {
+            debouncedUpdate();
+            clearSearchBtn.classList.toggle('hidden', !e.target.value);
+        });
+
+        clearSearchBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            debouncedUpdate();
+            clearSearchBtn.classList.add('hidden');
+            searchInput.focus();
+        });
+        
+        // --- INFINITE SCROLL OBSERVER ---
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !isLoading && currentPageIndex < filteredProducts.length) {
+                loadMoreProducts();
+            }
+        }, { rootMargin: "0px 0px 400px 0px" }); // Trigger when 400px from bottom
+
+        observer.observe(scrollSentinel);
+
+    </script>
 </body>
 </html>
