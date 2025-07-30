@@ -23,31 +23,17 @@
             background-color: #f8fafc; /* Tailwind's gray-50 */
         }
 
-        /* Masonry Layout using CSS Columns */
+        /* Masonry Layout using CSS Columns - More flexible breakpoints */
         .masonry-container {
             column-count: 2;
             column-gap: 1.5rem; /* gap-6 */
         }
-        @media (min-width: 640px) { /* sm */
-            .masonry-container {
-                column-count: 3;
-            }
-        }
-        @media (min-width: 1024px) { /* lg */
-            .masonry-container {
-                column-count: 4;
-            }
-        }
-        @media (min-width: 1280px) { /* xl */
-            .masonry-container {
-                column-count: 5;
-            }
-        }
-        @media (min-width: 1536px) { /* 2xl */
-             .masonry-container {
-                column-count: 6;
-            }
-        }
+        @media (min-width: 640px) { .masonry-container { column-count: 3; } }
+        @media (min-width: 768px) { .masonry-container { column-count: 4; } }
+        @media (min-width: 1280px) { .masonry-container { column-count: 5; } }
+        @media (min-width: 1536px) { .masonry-container { column-count: 6; } }
+        @media (min-width: 1920px) { .masonry-container { column-count: 7; } }
+
 
         /* Prevent cards from breaking across columns */
         .masonry-item {
@@ -91,31 +77,32 @@
     </style>
 </head>
 <body class="text-gray-800 flex flex-col min-h-screen">
-
-    <main class="flex-grow">
-        <div class="px-4 sm:px-6 lg:px-8 py-12">
-            
-            <!-- Header Section -->
-            <header class="text-center mb-8">
-                <h1 class="text-4xl sm:text-5xl font-bold text-gray-900 tracking-tight">Shopinq.Online</h1>
-                <p class="mt-3 text-lg text-gray-600 max-w-2xl mx-auto">Discover amazing products, updated daily.</p>
-            </header>
-
-            <!-- Search Bar -->
-            <div class="max-w-2xl mx-auto mb-8 sticky top-4 z-10">
+    
+    <!-- Sticky Header Area -->
+    <header class="sticky top-0 z-20 bg-white/80 backdrop-blur-lg border-b border-gray-200">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="py-4 text-center">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight cursor-pointer" onclick="window.location.reload();">Shopinq.Online</h1>
+            </div>
+             <!-- Search Bar -->
+            <div class="max-w-2xl mx-auto pb-4">
                  <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
                     </div>
-                    <input type="text" id="searchBox" class="block w-full pl-12 pr-10 py-3 text-lg bg-white border border-gray-300 rounded-full shadow-md placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow" placeholder="Search products..." disabled />
+                    <input type="text" id="searchBox" class="block w-full pl-12 pr-10 py-3 text-base bg-gray-100 border border-transparent rounded-full placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-all" placeholder="Search products..." disabled />
                     <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
                          <button id="clearSearchBtn" class="hidden text-gray-400 hover:text-gray-600"><svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
                     </div>
                 </div>
             </div>
+        </div>
+    </header>
 
+    <main class="flex-grow">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- Category Filters -->
-            <div id="categoryFilters" class="flex justify-center flex-wrap gap-2 mb-12">
+            <div id="categoryFilters" class="flex justify-center flex-wrap gap-3 mb-8">
                 <!-- Categories will be injected here -->
             </div>
 
@@ -134,7 +121,7 @@
 
     <!-- Footer -->
     <footer class="bg-white mt-8 border-t border-gray-200">
-        <div class="w-full mx-auto py-6 px-4 sm:px-6 lg:px-8 text-center text-gray-500">
+        <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8 text-center text-gray-500">
             <p>&copy; 2024 <a href="http://www.shopinq.online" target="_blank" class="hover:underline">Shopinq.Online</a>. All Rights Reserved.</p>
         </div>
     </footer>
@@ -146,6 +133,7 @@
         const CSV_HEADERS = { NAME: 'Name', CODE: 'Product Code', IMAGE_URL: 'Image URL', LINK: 'AliExpress Link', CATEGORY: 'Category' };
         const PAGE_SIZE = 20;
         const DEBOUNCE_DELAY = 350;
+        const PREDEFINED_CATEGORIES = ['Home Gadgets', 'Tech', 'Kitchen', 'Accessories', 'Travel'];
 
         // --- STATE ---
         let allProducts = [];
@@ -187,14 +175,26 @@
                 const card = document.createElement('div');
                 card.className = 'masonry-item product-card-enter';
                 
-                const cardContent = document.createElement('div');
-                cardContent.className = 'bg-white rounded-lg shadow-md overflow-hidden transform hover:shadow-xl transition-shadow duration-300 ease-in-out';
+                const cardLink = document.createElement('a');
+                cardLink.href = item[CSV_HEADERS.LINK] || '#';
+                cardLink.target = '_blank';
+                cardLink.rel = 'noopener noreferrer';
+                cardLink.className = 'block bg-white rounded-lg shadow-md overflow-hidden group';
                 
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'relative';
+
                 const img = document.createElement('img');
                 img.src = item[CSV_HEADERS.IMAGE_URL] || '';
                 img.alt = item[CSV_HEADERS.NAME] || 'Product Image';
-                img.className = 'w-full h-auto object-cover';
+                img.className = 'w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105';
+                img.loading = 'lazy';
                 img.onerror = () => { img.src = 'https://placehold.co/400x300/e2e8f0/475569?text=Image+Missing'; };
+                
+                const overlay = document.createElement('div');
+                overlay.className = 'absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300';
+
+                imgContainer.append(img, overlay);
 
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'p-4';
@@ -203,15 +203,9 @@
                 title.className = 'text-sm font-semibold text-gray-800';
                 title.textContent = item[CSV_HEADERS.NAME] || 'Unnamed Product';
                 
-                const link = document.createElement('a');
-                link.href = item[CSV_HEADERS.LINK] || '#';
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.className = 'absolute inset-0'; // Makes the whole card clickable
-
                 contentDiv.append(title);
-                cardContent.append(img, contentDiv, link);
-                card.appendChild(cardContent);
+                cardLink.append(imgContainer, contentDiv);
+                card.appendChild(cardLink);
                 fragment.appendChild(card);
             });
             productContainer.appendChild(fragment);
@@ -268,16 +262,20 @@
         const debouncedUpdate = debounce(updateDisplay, DEBOUNCE_DELAY);
 
         const setupCategories = () => {
-            const categories = ['All', ...new Set(allProducts.map(p => (p[CSV_HEADERS.CATEGORY] || '').trim()).filter(Boolean))];
-            categories.forEach(cat => {
+            const dynamicCategories = [...new Set(allProducts.map(p => (p[CSV_HEADERS.CATEGORY] || '').trim()).filter(Boolean))];
+            const categories = ['All', ...PREDEFINED_CATEGORIES, ...dynamicCategories.filter(c => !PREDEFINED_CATEGORIES.includes(c))];
+            
+            categoryFiltersContainer.innerHTML = ''; // Clear previous buttons
+            categories.slice(0, 10).forEach(cat => { // Limit to 10 categories to keep it clean
                 const btn = document.createElement('button');
                 btn.textContent = cat;
-                btn.className = 'category-btn px-4 py-2 text-sm font-semibold rounded-full transition-colors duration-200 bg-white border border-gray-300 hover:bg-gray-100';
-                if (cat === 'All') {
+                btn.className = 'category-btn px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200 bg-white border border-gray-300 hover:bg-gray-200 hover:border-gray-400';
+                if (cat === currentCategory) {
                     btn.classList.add('active');
                 }
                 btn.addEventListener('click', () => {
-                    document.querySelector('.category-btn.active').classList.remove('active');
+                    const currentActive = document.querySelector('.category-btn.active');
+                    if(currentActive) currentActive.classList.remove('active');
                     btn.classList.add('active');
                     currentCategory = cat;
                     updateDisplay();
@@ -323,7 +321,7 @@
             if (entries[0].isIntersecting && !isLoading && currentPageIndex < filteredProducts.length) {
                 loadMoreProducts();
             }
-        }, { rootMargin: "0px 0px 400px 0px" }); // Trigger when 400px from bottom
+        }, { rootMargin: "0px 0px 500px 0px" }); // Trigger when 500px from bottom
 
         observer.observe(scrollSentinel);
 
